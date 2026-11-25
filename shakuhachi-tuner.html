@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4efe2">
+<title>尺八チューナー</title>
+<style>
+:root{
+  --paper:#fbf7ec; --grid:#ecc9c3; --grid-strong:#d9948c; --ink:#1d1b18; --muted:#7a746a;
+  --ok:#1f8a4c; --warn:#d98a14; --bad:#c8392b; --panel:#fffdf6; --line:#ddd5c3;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);
+  font-family:-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif}
+body{display:flex;flex-direction:column;height:100dvh;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+header{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+header h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.05em;flex:1}
+button,select,input{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;min-height:40px}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.rec{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.sm{padding:4px 10px;min-height:34px}
+#level{width:44px;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+#level i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
+#readout{display:flex;align-items:center;gap:14px;padding:6px 14px 4px}
+#note{font-size:clamp(44px,12vw,72px);font-weight:800;line-height:1;min-width:2.6em;font-variant-numeric:tabular-nums}
+#note.dim{color:#b9b2a3}
+#info{flex:1;min-width:0}
+#cents{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+#hz{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+#meter{position:relative;height:14px;margin-top:4px;border-radius:7px;background:linear-gradient(90deg,#f1d2cd 0,#f7e9c9 30%,#cfe9d6 45%,#cfe9d6 55%,#f7e9c9 70%,#f1d2cd 100%);border:1px solid var(--line)}
+#meter b{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--muted);opacity:.5}
+#needle{position:absolute;top:-3px;width:6px;height:18px;border-radius:3px;background:var(--ink);left:50%;transform:translateX(-50%);transition:left .06s}
+main{flex:1;min-height:0;position:relative;margin:4px 0 0;border-top:1px solid var(--line)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;background:rgba(251,247,236,.92);font-size:14px;line-height:1.7}
+#msg.show{display:flex}
+#panel{border-top:1px solid var(--line);background:var(--panel);padding:10px 14px;display:none;max-height:46dvh;overflow:auto}
+#panel.open{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 18px}
+.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.f .row{display:flex;gap:6px;align-items:center;color:var(--ink);font-size:15px}
+.f select,.f input[type=number]{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 8px;min-height:38px;width:100%}
+.f input[type=range]{width:100%}
+.f .row input[type=number]{text-align:center;font-weight:700;font-size:17px}
+.note{font-size:11.5px;color:var(--muted);margin:10px 0 2px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <h1>尺八チューナー</h1>
+  <div id="level" title="入力レベル"><i></i></div>
+  <button class="btn sm" id="bSet">設定</button>
+  <button class="btn primary" id="bStart">開始</button>
+</header>
+
+<section id="readout">
+  <div id="note" class="dim">--</div>
+  <div id="info">
+    <div id="cents">&nbsp;</div>
+    <div id="hz">基準 A4 = 440 Hz</div>
+    <div id="meter"><b></b><div id="needle"></div></div>
+  </div>
+</section>
+
+<main>
+  <canvas id="chart"></canvas>
+  <div id="msg"></div>
+</main>
+
+<section id="panel">
+  <div class="grid">
+    <label class="f">尺八の長さ（最低音ロが変わります）
+      <select id="len"></select>
+    </label>
+    <label class="f">基準ピッチ A4（Hz）
+      <div class="row">
+        <button class="btn sm" id="a4m" type="button">−</button>
+        <input type="number" id="a4" min="380" max="500" step="1" inputmode="decimal">
+        <button class="btn sm" id="a4p" type="button">＋</button>
+      </div>
+    </label>
+    <label class="f">最低音の微調整（半音）
+      <div class="row">
+        <button class="btn sm" id="trm" type="button">−</button>
+        <input type="number" id="trim" step="1" min="-12" max="12" inputmode="numeric">
+        <button class="btn sm" id="trp" type="button">＋</button>
+      </div>
+    </label>
+    <label class="f">グラフの表示範囲
+      <select id="mode">
+        <option value="full">全体（最低音〜約2.7オクターブ）</option>
+        <option value="f26">追従・広め（約2オクターブ）</option>
+        <option value="f14">追従・拡大（約1オクターブ）</option>
+        <option value="f8">追従・大拡大（約半オクターブ）</option>
+      </select>
+    </label>
+    <label class="f">時間幅
+      <select id="win"><option value="4">4秒</option><option value="8">8秒</option><option value="15">15秒</option><option value="30">30秒</option></select>
+    </label>
+    <label class="f">音名の表記
+      <select id="notation"><option value="abc">C D E（英名）</option><option value="doremi">ド レ ミ</option></select>
+    </label>
+    <label class="f">半音の表記
+      <select id="acc"><option value="flat">♭（E♭ など）</option><option value="sharp">♯（D♯ など）</option></select>
+    </label>
+    <label class="f">マイク感度（小さい音も拾う ←→ ノイズに強い）
+      <input type="range" id="sens" min="1" max="10" step="1">
+    </label>
+    <label class="f">線の色分け（±10セントで緑）
+      <select id="color"><option value="1">する</option><option value="0">しない（黒）</option></select>
+    </label>
+  </div>
+  <p class="note">長さと最低音の対応は目安です（1.8尺＝D、1.6尺＝E、2.0尺＝C …）。楽器の個体差は「最低音の微調整」で合わせてください。グラフの緑の帯は、今の音に最も近い音の ±10セントです。</p>
+  <button class="btn sm" id="bDemo" type="button">デモ表示（マイクなし）</button>
+</section>
+
+<script>
+/* ===== YIN pitch detector ===== */
+//<<YIN
+function yinDetect(buf, sr, W, tauMin, tauMax, thr){
+  var d = new Float32Array(tauMax + 1), cm = new Float32Array(tauMax + 1);
+  for (var tau = 1; tau <= tauMax; tau++){
+    var s = 0;
+    for (var i = 0; i < W; i++){ var x = buf[i] - buf[i + tau]; s += x * x; }
+    d[tau] = s;
+  }
+  var run = 0; cm[0] = 1;
+  for (var t = 1; t <= tauMax; t++){ run += d[t]; cm[t] = run > 0 ? d[t] * t / run : 1; }
+  var best = -1;
+  for (var k = tauMin; k < tauMax; k++){
+    if (cm[k] < thr){
+      while (k + 1 < tauMax && cm[k + 1] < cm[k]) k++;
+      best = k; break;
+    }
+  }
+  if (best < 0){
+    var m = 1e9;
+    for (var j = tauMin; j < tauMax; j++){ if (cm[j] < m){ m = cm[j]; best = j; } }
+    if (m > 0.32) return null;
+    for (var q = tauMin + 1; q < best; q++){      // prefer the shortest period that is nearly as good (avoids octave-down errors)
+      if (cm[q] <= cm[q - 1] && cm[q] <= cm[q + 1] && cm[q] <= m + 0.08){ best = q; break; }
+    }
+  }
+  var x0 = cm[best - 1], x1 = cm[best], x2 = cm[best + 1];
+  var den = x0 + x2 - 2 * x1, tauI = best;
+  if (Math.abs(den) > 1e-12) tauI = best + (x0 - x2) / (2 * den);
+  return { freq: sr / tauI, clarity: 1 - cm[best] };
+}
+//>>YIN
+
+/* ===== settings ===== */
+var DEF = {len:1.8, a4:440, trim:0, mode:'full', win:8, notation:'abc', acc:'flat', sens:5, color:'1'};
+var S = Object.assign({}, DEF);
+try { var sv = JSON.parse(localStorage.getItem('shaku-tuner') || '{}'); Object.assign(S, sv); } catch(e){}
+function save(){ try { localStorage.setItem('shaku-tuner', JSON.stringify(S)); } catch(e){} }
+
+var NAMES = {
+  abc:{sharp:['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'], flat:['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B']},
+  doremi:{sharp:['ド','ド♯','レ','レ♯','ミ','ファ','ファ♯','ソ','ソ♯','ラ','ラ♯','シ'], flat:['ド','レ♭','レ','ミ♭','ミ','ファ','ソ♭','ソ','ラ♭','ラ','シ♭','シ']}
+};
+function pc(m){ return ((m % 12) + 12) % 12; }
+function noteName(m, oct){
+  var n = NAMES[S.notation][S.acc][pc(m)];
+  return oct ? n + (Math.floor(m / 12) - 1) : n;
+}
+function isNatural(m){ return [0,2,4,5,7,9,11].indexOf(pc(m)) >= 0; }
+function roMidi(){ return 62 + Math.round(12 * Math.log2(1.8 / S.len)) + S.trim; }
+
+/* ===== UI refs ===== */
+var $ = function(id){ return document.getElementById(id); };
+var cv = $('chart'), ctx = cv.getContext('2d');
+var cssW = 300, cssH = 300, dpr = 1;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  var r = cv.getBoundingClientRect(); cssW = r.width; cssH = r.height;
+  cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+}
+new ResizeObserver(resize).observe(cv); window.addEventListener('resize', resize);
+
+function buildLenOptions(){
+  var sel = $('len'); sel.innerHTML = '';
+  for (var l = 1.2; l <= 3.01; l += 0.1){
+    var v = Math.round(l * 10) / 10;
+    var ro = 62 + Math.round(12 * Math.log2(1.8 / v));
+    var o = document.createElement('option');
+    o.value = v; o.textContent = v.toFixed(1) + '尺（ロ ≒ ' + noteName(ro, true) + '）';
+    sel.appendChild(o);
+  }
+  sel.value = (Math.round(S.len * 10) / 10).toString();
+  if (sel.value === '' ) sel.value = '1.8';
+}
+function syncControls(){
+  buildLenOptions();
+  $('a4').value = S.a4; $('trim').value = S.trim; $('mode').value = S.mode; $('win').value = S.win;
+  $('notation').value = S.notation; $('acc').value = S.acc; $('sens').value = S.sens; $('color').value = S.color;
+  $('hz').textContent = '基準 A4 = ' + S.a4 + ' Hz';
+}
+function bind(id, key, num){
+  $(id).addEventListener('change', function(){
+    var v = this.value; S[key] = num ? parseFloat(v) : v;
+    if (key === 'a4'){ S.a4 = Math.min(500, Math.max(380, S.a4 || 440)); }
+    save(); syncControls();
+  });
+}
+bind('len','len',true); bind('a4','a4',true); bind('trim','trim',true); bind('mode','mode');
+bind('win','win',true); bind('notation','notation'); bind('acc','acc'); bind('sens','sens',true); bind('color','color');
+function step(id, key, d, lo, hi){
+  $(id).addEventListener('click', function(){ S[key] = Math.min(hi, Math.max(lo, (S[key] || 0) + d)); save(); syncControls(); });
+}
+step('a4m','a4',-1,380,500); step('a4p','a4',1,380,500); step('trm','trim',-1,-12,12); step('trp','trim',1,-12,12);
+$('bSet').addEventListener('click', function(){ $('panel').classList.toggle('open'); });
+
+/* ===== audio ===== */
+var actx = null, analyser = null, stream = null, raw = null, running = false, demo = false, wake = null;
+var hist = [];            // {t, m (float midi) or null}
+var recent = [];          // for median smoothing
+var lastVoiced = 0, lastMidi = null, center = 69, lvl = 0;
+
+function showMsg(html){ var m = $('msg'); m.innerHTML = html; m.classList.add('show'); }
+function hideMsg(){ $('msg').classList.remove('show'); }
+
+async function start(){
+  if (running) return;
+  demo = false;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showMsg('このブラウザ／表示方法ではマイクを使えません。<br>HTTPS で公開したページをSafari・Chromeで開いてください。<br><small>（デモ表示は設定から見られます）</small>'); return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  } catch(e){
+    showMsg('マイクを使えませんでした。<br>ブラウザのマイク許可を確認してください。<br><small>' + (e && e.name ? e.name : '') + '</small>'); return;
+  }
+  var AC = window.AudioContext || window.webkitAudioContext;
+  actx = new AC(); if (actx.state === 'suspended') await actx.resume();
+  var src = actx.createMediaStreamSource(stream);
+  analyser = actx.createAnalyser(); analyser.fftSize = 8192; analyser.smoothingTimeConstant = 0;
+  src.connect(analyser);
+  raw = new Float32Array(analyser.fftSize);
+  try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch(e){}
+  hideMsg(); setRunning(true);
+}
+function stop(){
+  running = false;
+  if (stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+  if (actx){ try{ actx.close(); }catch(e){} actx = null; }
+  if (wake){ try{ wake.release(); }catch(e){} wake = null; }
+  analyser = null; setRunning(false); demo = false;
+}
+function setRunning(on){
+  running = on || demo;
+  $('bStart').textContent = on || demo ? '停止' : '開始';
+  $('bStart').classList.toggle('rec', on || demo);
+  $('bStart').classList.toggle('primary', !(on || demo));
+}
+$('bStart').addEventListener('click', function(){ if (running || demo){ stop(); } else { start(); } });
+$('bDemo').addEventListener('click', function(){
+  if (running) stop();
+  demo = true; hist = []; hideMsg(); $('panel').classList.remove('open'); setRunning(true); demo = true;
+});
+
+function demoMidi(t){
+  var ro = roMidi(), seq = [0,3,5,7,10,12,15,17,19,17,12,7,5,0];
+  var seg = 1.5, i = Math.floor(t / seg) % seq.length, ph = (t % seg) / seg;
+  if (ph > 0.88) return null;
+  var drift = [0, 0.12, -0.25, 0.05, 0.3, -0.12, 0][i % 7];
+  return ro + seq[i] + drift + 0.12 * Math.sin(t * 2 * Math.PI * 5.3) * Math.min(1, ph * 3);
+}
+
+function analyse(now){
+  var m = null, rmsV = 0;
+  if (demo){
+    m = demoMidi(now); lvl = m === null ? 0.1 : 0.6;
+  } else if (analyser){
+    analyser.getFloatTimeDomainData(raw);
+    var f = Math.max(1, Math.round(actx.sampleRate / 24000)), sr = actx.sampleRate / f;
+    var W = 1024, tauMax = Math.ceil(sr / 140), tauMin = Math.max(2, Math.floor(sr / 2800));
+    var N = W + tauMax + 1, buf = new Float32Array(N), off = raw.length - N * f, e = 0;
+    for (var i = 0; i < N; i++){
+      var a = 0; for (var k = 0; k < f; k++) a += raw[off + i * f + k];
+      buf[i] = a / f;
+    }
+    for (var j = 0; j < W; j++) e += buf[j] * buf[j];
+    rmsV = Math.sqrt(e / W);
+    lvl = Math.min(1, Math.max(0, (20 * Math.log10(rmsV + 1e-9) + 70) / 50));
+    var thr = 0.02 * Math.pow(0.6, S.sens - 1);
+    if (rmsV > thr){
+      var r = yinDetect(buf, sr, W, tauMin, tauMax, 0.15);
+      if (r && r.clarity > 0.68) m = 69 + 12 * Math.log2(r.freq / S.a4);
+    }
+  }
+  // median of last 3 detections
+  if (m === null){ recent = []; }
+  else {
+    recent.push(m); if (recent.length > 3) recent.shift();
+    if (recent.length < 2) m = null;
+    else { var s = recent.slice().sort(function(a, b){ return a - b; }); m = s[Math.floor(s.length / 2)]; }
+  }
+  hist.push({t: now, m: m});
+  var cutoff = now - 32; while (hist.length && hist[0].t < cutoff) hist.shift();
+  if (m !== null){ lastVoiced = now; lastMidi = m; }
+  updateReadout(now, m);
+}
+
+function updateReadout(now, m){
+  $('level').firstChild.style.width = Math.round(lvl * 100) + '%';
+  var el = $('note'), c = $('cents'), nd = $('needle');
+  var live = m !== null || (lastMidi !== null && now - lastVoiced < 0.7);
+  var mm = m !== null ? m : lastMidi;
+  if (mm === null){ el.textContent = '--'; el.classList.add('dim'); c.innerHTML = '&nbsp;'; return; }
+  var n = Math.round(mm), cents = Math.round((mm - n) * 100);
+  el.textContent = noteName(n, true); el.classList.toggle('dim', !live);
+  c.textContent = (cents > 0 ? '+' : cents < 0 ? '−' : '±') + Math.abs(cents) + ' セント';
+  c.style.color = !live ? '#b9b2a3' : Math.abs(cents) <= 10 ? 'var(--ok)' : Math.abs(cents) <= 25 ? 'var(--warn)' : 'var(--bad)';
+  $('hz').textContent = (S.a4 * Math.pow(2, (mm - 69) / 12)).toFixed(1) + ' Hz　（基準 A4 = ' + S.a4 + ' Hz）';
+  nd.style.left = (50 + Math.max(-50, Math.min(50, cents))) + '%';
+}
+
+/* ===== drawing ===== */
+function draw(now){
+  var w = cssW, h = cssH;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--paper');
+  ctx.fillRect(0, 0, w, h);
+  var ro = roMidi(), lo, hi;
+  if (S.mode === 'full'){ lo = ro - 2; hi = lo + 33; }
+  else {
+    var span = {f26:26, f14:14, f8:8}[S.mode] || 14;
+    if (lastMidi !== null && (now - lastVoiced) < 2) center += (lastMidi - center) * 0.07;
+    else if (!hist.length || lastMidi === null) center = ro + 5;
+    lo = center - span / 2; hi = center + span / 2;
+  }
+  var pxS = h / (hi - lo);
+  var yOf = function(m){ return h - (m - lo) * pxS; };
+  var LM = 46;                                  // left label margin
+  var xOf = function(t){ return w - 10 - (now - t) / S.win * (w - LM - 10); };
+
+  // vertical time grid (every second, scrolling)
+  ctx.lineWidth = 1;
+  for (var ts = Math.floor(now - S.win); ts <= now; ts++){
+    var x = xOf(ts); if (x < LM) continue;
+    ctx.strokeStyle = (ts % 5 === 0) ? '#d9948c' : '#ecc9c3'; ctx.globalAlpha = (ts % 5 === 0) ? 0.7 : 0.55;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // tolerance band around the note being played
+  var mmNow = (lastMidi !== null && now - lastVoiced < 0.7) ? lastMidi : null;
+  if (mmNow !== null){
+    var nn = Math.round(mmNow);
+    ctx.fillStyle = 'rgba(31,138,76,.13)';
+    ctx.fillRect(LM, yOf(nn + 0.1), w - LM, 0.2 * pxS);
+  }
+
+  // semitone lines + labels
+  ctx.font = '600 11px -apple-system, "Hiragino Sans", sans-serif'; ctx.textBaseline = 'middle';
+  for (var m = Math.ceil(lo); m <= Math.floor(hi); m++){
+    var y = yOf(m), nat = isNatural(m), isRo = (m === ro);
+    ctx.strokeStyle = isRo ? '#c8392b' : nat ? '#d9948c' : '#ecc9c3';
+    ctx.lineWidth = isRo ? 1.6 : nat ? 1.1 : 0.8;
+    ctx.beginPath(); ctx.moveTo(LM - 6, y); ctx.lineTo(w, y); ctx.stroke();
+    if (pxS >= 11 || nat){
+      ctx.fillStyle = nat ? '#4a443b' : '#8a8478'; ctx.textAlign = 'right';
+      ctx.fillText(noteName(m, true), LM - 9, y);
+    }
+    if (isRo){ ctx.fillStyle = '#c8392b'; ctx.textAlign = 'left'; ctx.fillText('ロ', LM + 4, y - 8); }
+  }
+
+  // trace
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 2.6;
+  var prev = null, color = S.color === '1';
+  for (var i = 0; i < hist.length; i++){
+    var p = hist[i];
+    if (p.m === null || p.t < now - S.win - 0.5){ prev = null; continue; }
+    if (prev && Math.abs(p.m - prev.m) > 1.6) prev = null;   // note change: lift the pen
+    if (prev){
+      var cts = Math.abs((p.m - Math.round(p.m)) * 100);
+      ctx.strokeStyle = color ? (cts <= 10 ? '#1f8a4c' : cts <= 25 ? '#d98a14' : '#c8392b') : '#1d1b18';
+      ctx.beginPath(); ctx.moveTo(xOf(prev.t), yOf(prev.m)); ctx.lineTo(xOf(p.t), yOf(p.m)); ctx.stroke();
+    }
+    prev = p;
+  }
+  // pen
+  var last = hist.length ? hist[hist.length - 1] : null;
+  if (last && last.m !== null){
+    ctx.fillStyle = '#c8392b'; ctx.beginPath(); ctx.arc(xOf(last.t), yOf(last.m), 5, 0, 7); ctx.fill();
+  }
+}
+
+var lastRun = 0;
+function loop(ts){
+  var now = ts / 1000;
+  if (running && now - lastRun >= 0.014){ lastRun = now; analyse(now); }
+  draw(now);
+  requestAnimationFrame(loop);
+}
+
+syncControls(); resize();
+showMsg('「開始」を押してマイクを許可し、尺八を吹いてください。<br><small>ピッチが横スクロールのグラフに記録されます。</small>');
+$('bStart').addEventListener('click', function(){ if (running) hideMsg(); });
+$('bDemo').addEventListener('click', hideMsg);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
