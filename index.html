@@ -31,9 +31,9 @@ button,select,input{font:inherit;color:inherit}
 #info{flex:1 1 150px;min-width:140px}
 #cents{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
 #tabn{font-weight:800;color:#8a2b20;margin-left:.25em}
-#tabn .sm{font-size:.5em;vertical-align:middle}
-#tabn .mr{font-size:.5em;vertical-align:-.45em}
-#tabn .pre{font-size:.7em;vertical-align:.1em}
+#tabn .sm{font-size:.85em}
+#tabn .mr{font-size:.7em;vertical-align:-.25em}
+#tabn .pre{font-size:1em}
 #tabn .sep{font-weight:400;margin:0 .05em}
 #hz{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 #meter{position:relative;height:14px;margin-top:4px;border-radius:7px;background:linear-gradient(90deg,#f1d2cd 0,#f7e9c9 30%,#cfe9d6 45%,#cfe9d6 55%,#f7e9c9 70%,#f1d2cd 100%);border:1px solid var(--line)}
@@ -122,7 +122,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <select id="color"><option value="1">する</option><option value="0">しない（黒）</option></select>
     </label>
   </div>
-  <p class="note">尺八譜は都山流の運指表に合わせ、最低音ロからの半音の数で割り当てています。半音（大メリ）は小さいカナ、メリは左下に小さい「メ」で表します。流派や楽譜で表記が違う場合があります。<br>長さと最低音の対応は目安です（1.8尺＝D、1.6尺＝E、2.0尺＝C …）。楽器の個体差は「最低音の微調整」で合わせてください。グラフの緑の帯は、今の音に最も近い音の ±10セントです。</p>
+  <p class="note">尺八譜は都山流の運指表に合わせ、最低音ロからの半音の数で割り当てています。半音（大メリ）はやや小さいカナ、メリは左下に少し小さい「メ」で表します。流派や楽譜で表記が違う場合があります。<br>長さと最低音の対応は目安です（1.8尺＝D、1.6尺＝E、2.0尺＝C …）。楽器の個体差は「最低音の微調整」で合わせてください。グラフの緑の帯は、今の音に最も近い音の ±10セントです。</p>
   <button class="btn sm" id="bDemo" type="button">デモ表示（マイクなし）</button>
 </section>
 
@@ -182,7 +182,7 @@ var TABS = {
   '0':[T('','ロ','n')], '1':[T('','ツ','h')], '2':[T('','ツ','m')], '3':[T('','ツ','n')],
   '4':[T('','レ','h')], '5':[T('','レ','n')], '6':[T('','チ','h')], '7':[T('','チ','n')],
   '8':[T('','ハ','h')], '9':[T('','ハ','m')], '10':[T('','ハ','n')],
-  '11':[T('甲','ロ','h')], '12':[T('','ヒ','n'), T('甲','ロ','n')],
+  '11':[T('甲','ロ','h')], '12':[T('甲','ロ','n'), T('','ヒ','n')],
   '13':[T('甲','ツ','h')], '14':[T('甲','ツ','m')], '15':[T('甲','ツ','n')],
   '16':[T('甲','レ','h')], '17':[T('甲','レ','n')], '18':[T('甲','チ','h')], '19':[T('甲','チ','n')],
   '20':[T('甲','ハ','h')], '21':[T('甲','ハ','m')], '22':[T('甲','ハ','n')],
@@ -199,15 +199,15 @@ function tabHTML(tb){
 }
 var TABFONT = '"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif';
 function drawTab(tb, x, y, size){
-  var cx = x;
+  var cx = x + (tb[0].pre ? 0 : size);          // 甲なしは一字分右へ（甲つきとカナの位置をそろえる）
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   tb.forEach(function(t, i){
     if (i > 0){ ctx.font = '700 ' + size + 'px ' + TABFONT; ctx.fillText('／', cx, y); cx += ctx.measureText('／').width; }
-    if (t.pre){ ctx.font = '700 ' + (size * 0.7) + 'px ' + TABFONT; ctx.fillText(t.pre, cx, y - size * 0.1); cx += ctx.measureText(t.pre).width + 1; }
+    if (t.pre){ ctx.font = '700 ' + size + 'px ' + TABFONT; ctx.fillText(t.pre, cx, y); cx += ctx.measureText(t.pre).width + 1; }
     var half = (t.kind === 'h' || t.kind === 'hm');
-    if (t.kind === 'm' || t.kind === 'hm'){ ctx.font = '700 ' + (size * 0.5) + 'px ' + TABFONT; ctx.fillText('メ', cx, y + size * 0.3); cx += ctx.measureText('メ').width; }
-    ctx.font = '700 ' + (half ? size * 0.5 : size) + 'px ' + TABFONT;
-    ctx.fillText(t.kana, cx, y + (half ? size * 0.12 : 0)); cx += ctx.measureText(t.kana).width + 1;
+    if (t.kind === 'm' || t.kind === 'hm'){ ctx.font = '700 ' + (size * 0.7) + 'px ' + TABFONT; ctx.fillText('メ', cx, y + size * 0.22); cx += ctx.measureText('メ').width; }
+    ctx.font = '700 ' + (half ? size * 0.85 : size) + 'px ' + TABFONT;
+    ctx.fillText(t.kana, cx, y + (half ? size * 0.05 : 0)); cx += ctx.measureText(t.kana).width + 1;
   });
 }
 function roMidi(){ return 62 + Math.round(12 * Math.log2(1.8 / S.len)) + S.trim; }
@@ -306,8 +306,10 @@ $('bDemo').addEventListener('click', function(){
 });
 
 function demoMidi(t){
-  var ro = roMidi(), seq = [0,3,5,7,10,12,15,17,19,17,12,7,5,0];
-  var seg = 1.5, i = Math.floor(t / seg) % seq.length, ph = (t % seg) / seg;
+  var ro = roMidi(), seq = [];
+  for (var q = 0; q <= 24; q++) seq.push(q);          // 半音階で上がって
+  for (q = 23; q >= 1; q--) seq.push(q);              // 下がる（♯・♭の音も出る）
+  var seg = 1.3, i = Math.floor(t / seg) % seq.length, ph = (t % seg) / seg;
   if (ph > 0.88) return null;
   var drift = [0, 0.12, -0.25, 0.05, 0.3, -0.12, 0][i % 7];
   return ro + seq[i] + drift + 0.12 * Math.sin(t * 2 * Math.PI * 5.3) * Math.min(1, ph * 3);
@@ -381,7 +383,7 @@ function draw(now){
   var PAD = 14;                                   // top/bottom margin so edge labels are not clipped
   var pxS = (h - 2 * PAD) / (hi - lo);
   var yOf = function(m){ return h - PAD - (m - lo) * pxS; };
-  var LM = S.tab === '1' ? 96 : 46;                                  // left label margin
+  var LM = S.tab === '1' ? 112 : 46;                                  // left label margin
   var xOf = function(t){ return w - 10 - (now - t) / S.win * (w - LM - 10); };
 
   // vertical time grid (every second, scrolling)
