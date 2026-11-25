@@ -124,6 +124,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
     <label class="f">尺八譜（都山流）の表示
       <select id="tab"><option value="1">音名の横に表示する</option><option value="0">表示しない</option></select>
     </label>
+    <label class="f">グラフの右側にも音名を表示
+      <select id="rlab"><option value="1">表示する</option><option value="0">表示しない（グラフを広く）</option></select>
+    </label>
     <label class="f">線の色分け（±10セントで緑）
       <select id="color"><option value="1">する</option><option value="0">しない（黒）</option></select>
     </label>
@@ -167,7 +170,7 @@ function yinDetect(buf, sr, W, tauMin, tauMax, thr){
 //>>YIN
 
 /* ===== settings ===== */
-var DEF = {len:1.8, a4:440, trim:0, mode:'full', win:8, notation:'abc', acc:'flat', sens:5, color:'1', tab:'1'};
+var DEF = {len:1.8, a4:440, trim:0, mode:'full', win:8, notation:'abc', acc:'flat', sens:5, color:'1', tab:'1', rlab:'1'};
 var S = Object.assign({}, DEF);
 try { var sv = JSON.parse(localStorage.getItem('shaku-tuner') || '{}'); Object.assign(S, sv); } catch(e){}
 function save(){ try { localStorage.setItem('shaku-tuner', JSON.stringify(S)); } catch(e){} }
@@ -244,7 +247,7 @@ function buildLenOptions(){
 function syncControls(){
   buildLenOptions();
   $('a4').value = S.a4; $('trim').value = S.trim; $('mode').value = S.mode; $('win').value = S.win;
-  $('notation').value = S.notation; $('acc').value = S.acc; $('sens').value = S.sens; $('color').value = S.color; $('tab').value = S.tab;
+  $('notation').value = S.notation; $('acc').value = S.acc; $('sens').value = S.sens; $('color').value = S.color; $('tab').value = S.tab; $('rlab').value = S.rlab;
   $('hz').textContent = '基準 A4=' + S.a4 + ' Hz';
 }
 function bind(id, key, num){
@@ -255,7 +258,7 @@ function bind(id, key, num){
   });
 }
 bind('len','len',true); bind('a4','a4',true); bind('trim','trim',true); bind('mode','mode');
-bind('win','win',true); bind('notation','notation'); bind('acc','acc'); bind('sens','sens',true); bind('color','color'); bind('tab','tab');
+bind('win','win',true); bind('notation','notation'); bind('acc','acc'); bind('sens','sens',true); bind('color','color'); bind('tab','tab'); bind('rlab','rlab');
 function step(id, key, d, lo, hi){
   $(id).addEventListener('click', function(){ S[key] = Math.min(hi, Math.max(lo, (S[key] || 0) + d)); save(); syncControls(); });
 }
@@ -389,8 +392,9 @@ function draw(now){
   var PAD = 14;                                   // top/bottom margin so edge labels are not clipped
   var pxS = (h - 2 * PAD) / (hi - lo);
   var yOf = function(m){ return h - PAD - (m - lo) * pxS; };
-  var LM = S.tab === '1' ? 112 : 46;                                  // left label margin
-  var xOf = function(t){ return w - 10 - (now - t) / S.win * (w - LM - 10); };
+  var LM = S.tab === '1' ? 104 : 46;                                  // left label margin
+  var RM = S.rlab === '1' ? (S.tab === '1' ? 104 : 46) : 10;          // right label margin
+  var xOf = function(t){ return w - RM - 10 - (now - t) / S.win * (w - LM - RM - 10); };
 
   // vertical time grid (every second, scrolling)
   ctx.lineWidth = 1;
@@ -406,7 +410,7 @@ function draw(now){
   if (mmNow !== null){
     var nn = Math.round(mmNow);
     ctx.fillStyle = 'rgba(31,138,76,.13)';
-    ctx.fillRect(LM, yOf(nn + 0.1), w - LM, 0.2 * pxS);
+    ctx.fillRect(LM, yOf(nn + 0.1), w - LM - RM, 0.2 * pxS);
   }
 
   // semitone lines + labels
@@ -416,7 +420,7 @@ function draw(now){
     if (y < 8 || y > h - 8) continue;
     ctx.strokeStyle = isRo ? '#c8392b' : nat ? '#d9948c' : '#ecc9c3';
     ctx.lineWidth = isRo ? 1.6 : nat ? 1.1 : 0.8;
-    ctx.beginPath(); ctx.moveTo(LM - 6, y); ctx.lineTo(w, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(LM - 6, y); ctx.lineTo(w - RM + 6, y); ctx.stroke();
     if (pxS >= 11 || nat){
       ctx.font = '600 11px -apple-system, "Hiragino Sans", sans-serif';
       ctx.fillStyle = nat ? '#4a443b' : '#8a8478'; ctx.textAlign = 'right';
@@ -426,6 +430,17 @@ function draw(now){
     if (tb && (pxS >= 11 || tabIsMain(tb))){
       ctx.fillStyle = tabIsMain(tb) ? '#8a2b20' : '#a0463c';
       drawTab(tb, 4, y, 13);
+    }
+    if (S.rlab === '1'){                               // 右側：グラフに近い側が英語表記、外側が尺八譜
+      if (pxS >= 11 || nat){
+        ctx.font = '600 11px -apple-system, "Hiragino Sans", sans-serif';
+        ctx.fillStyle = nat ? '#4a443b' : '#8a8478'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(noteName(m, true), w - RM + 10, y);
+      }
+      if (tb && (pxS >= 11 || tabIsMain(tb))){
+        ctx.fillStyle = tabIsMain(tb) ? '#8a2b20' : '#a0463c';
+        drawTab(tb, w - RM + 44, y, 13);
+      }
     }
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     if (isRo && S.tab !== '1'){ ctx.fillStyle = '#c8392b'; ctx.textAlign = 'left'; ctx.fillText('ロ', LM + 4, y - 8); }
