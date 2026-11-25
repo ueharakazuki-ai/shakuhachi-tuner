@@ -24,12 +24,17 @@ button,select,input{font:inherit;color:inherit}
 .btn.sm{padding:4px 10px;min-height:34px}
 #level{width:44px;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
 #level i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
-#readout{display:flex;align-items:center;gap:14px;padding:6px 14px 4px}
-#note{font-size:clamp(44px,12vw,72px);font-weight:800;line-height:1;min-width:2.6em;font-variant-numeric:tabular-nums}
+#readout{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:6px 14px 4px}
+#note{font-size:clamp(38px,10.5vw,64px);font-weight:800;line-height:1.1;min-width:1.8em;white-space:nowrap;font-variant-numeric:tabular-nums}
 #note.dim{color:#b9b2a3}
-#info{flex:1;min-width:0}
+#note.dim #tabn{color:#d7b9b4}
+#info{flex:1 1 150px;min-width:140px}
 #cents{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
-#tabn{font-size:20px;font-weight:800;color:#8a2b20;min-height:1.2em;letter-spacing:.06em}
+#tabn{font-weight:800;color:#8a2b20;margin-left:.25em}
+#tabn .sm{font-size:.5em;vertical-align:middle}
+#tabn .mr{font-size:.5em;vertical-align:-.45em}
+#tabn .pre{font-size:.7em;vertical-align:.1em}
+#tabn .sep{font-weight:400;margin:0 .05em}
 #hz{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 #meter{position:relative;height:14px;margin-top:4px;border-radius:7px;background:linear-gradient(90deg,#f1d2cd 0,#f7e9c9 30%,#cfe9d6 45%,#cfe9d6 55%,#f7e9c9 70%,#f1d2cd 100%);border:1px solid var(--line)}
 #meter b{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--muted);opacity:.5}
@@ -61,7 +66,6 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
   <div id="note" class="dim">--</div>
   <div id="info">
     <div id="cents">&nbsp;</div>
-    <div id="tabn"></div>
     <div id="hz">基準 A4 = 440 Hz</div>
     <div id="meter"><b></b><div id="needle"></div></div>
   </div>
@@ -118,7 +122,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <select id="color"><option value="1">する</option><option value="0">しない（黒）</option></select>
     </label>
   </div>
-  <p class="note">尺八譜は都山流の記譜（ロ・ツ・レ・チ・ハ・ヒ、メ＝メリ、中＝中メリ、甲）を、最低音ロからの半音の数で割り当てたものです。流派や楽譜によって表記が違う場合があります。<br>長さと最低音の対応は目安です（1.8尺＝D、1.6尺＝E、2.0尺＝C …）。楽器の個体差は「最低音の微調整」で合わせてください。グラフの緑の帯は、今の音に最も近い音の ±10セントです。</p>
+  <p class="note">尺八譜は都山流の運指表に合わせ、最低音ロからの半音の数で割り当てています。半音（大メリ）は小さいカナ、メリは左下に小さい「メ」で表します。流派や楽譜で表記が違う場合があります。<br>長さと最低音の対応は目安です（1.8尺＝D、1.6尺＝E、2.0尺＝C …）。楽器の個体差は「最低音の微調整」で合わせてください。グラフの緑の帯は、今の音に最も近い音の ±10セントです。</p>
   <button class="btn sm" id="bDemo" type="button">デモ表示（マイクなし）</button>
 </section>
 
@@ -172,15 +176,39 @@ function noteName(m, oct){
   return oct ? n + (Math.floor(m / 12) - 1) : n;
 }
 function isNatural(m){ return [0,2,4,5,7,9,11].indexOf(pc(m)) >= 0; }
-var TOZAN = {'-2':'ロメ','-1':'ロ中','0':'ロ','1':'ツメ','2':'ツ中','3':'ツ','4':'レメ','5':'レ','6':'チメ','7':'チ','8':'ハメ','9':'ハ中','10':'ハ'};
-function tabName(m){
-  if (S.tab !== '1') return '';
-  var k = m - roMidi();
-  if (k < -2 || k > 24) return '';
-  if (k <= 10) return TOZAN[k];                    // 乙
-  if (k === 11) return '甲ロメ';
-  if (k <= 22) return '甲' + TOZAN[k - 12];        // 甲
-  return k === 23 ? 'ヒメ' : 'ヒ';                 // 大甲
+function T(pre, kana, kind){ return {pre: pre, kana: kana, kind: kind}; }   // kind: n=通常 h=半音(小さいカナ) m=メリ(左下に小さい「メ」) hm=半音のメリ
+var TABS = {
+  '-2':[T('','ロ','hm')], '-1':[T('','ロ','h')],
+  '0':[T('','ロ','n')], '1':[T('','ツ','h')], '2':[T('','ツ','m')], '3':[T('','ツ','n')],
+  '4':[T('','レ','h')], '5':[T('','レ','n')], '6':[T('','チ','h')], '7':[T('','チ','n')],
+  '8':[T('','ハ','h')], '9':[T('','ハ','m')], '10':[T('','ハ','n')],
+  '11':[T('甲','ロ','h')], '12':[T('','ヒ','n'), T('甲','ロ','n')],
+  '13':[T('甲','ツ','h')], '14':[T('甲','ツ','m')], '15':[T('甲','ツ','n')],
+  '16':[T('甲','レ','h')], '17':[T('甲','レ','n')], '18':[T('甲','チ','h')], '19':[T('甲','チ','n')],
+  '20':[T('甲','ハ','h')], '21':[T('甲','ハ','m')], '22':[T('甲','ハ','n')],
+  '23':[T('甲','ピ','h')], '24':[T('','ピ','n')], '25':[T('','タ','n')], '26':[T('','四','n')]
+};
+function tabName(m){ return S.tab === '1' ? (TABS[String(m - roMidi())] || null) : null; }
+function tabIsMain(tb){ for (var i = 0; i < tb.length; i++) if (tb[i].kind !== 'n') return false; return true; }
+function tabHTML(tb){
+  return tb.map(function(t){
+    var h = t.pre ? '<span class="pre">' + t.pre + '</span>' : '';
+    if (t.kind === 'm' || t.kind === 'hm') h += '<span class="mr">メ</span>';
+    return h + '<span class="' + (t.kind === 'h' || t.kind === 'hm' ? 'sm' : '') + '">' + t.kana + '</span>';
+  }).join('<span class="sep">／</span>');
+}
+var TABFONT = '"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif';
+function drawTab(tb, x, y, size){
+  var cx = x;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  tb.forEach(function(t, i){
+    if (i > 0){ ctx.font = '700 ' + size + 'px ' + TABFONT; ctx.fillText('／', cx, y); cx += ctx.measureText('／').width; }
+    if (t.pre){ ctx.font = '700 ' + (size * 0.7) + 'px ' + TABFONT; ctx.fillText(t.pre, cx, y - size * 0.1); cx += ctx.measureText(t.pre).width + 1; }
+    var half = (t.kind === 'h' || t.kind === 'hm');
+    if (t.kind === 'm' || t.kind === 'hm'){ ctx.font = '700 ' + (size * 0.5) + 'px ' + TABFONT; ctx.fillText('メ', cx, y + size * 0.3); cx += ctx.measureText('メ').width; }
+    ctx.font = '700 ' + (half ? size * 0.5 : size) + 'px ' + TABFONT;
+    ctx.fillText(t.kana, cx, y + (half ? size * 0.12 : 0)); cx += ctx.measureText(t.kana).width + 1;
+  });
 }
 function roMidi(){ return 62 + Math.round(12 * Math.log2(1.8 / S.len)) + S.trim; }
 
@@ -325,10 +353,11 @@ function updateReadout(now, m){
   var el = $('note'), c = $('cents'), nd = $('needle');
   var live = m !== null || (lastMidi !== null && now - lastVoiced < 0.7);
   var mm = m !== null ? m : lastMidi;
-  if (mm === null){ el.textContent = '--'; el.classList.add('dim'); c.innerHTML = '&nbsp;'; $('tabn').textContent = ''; return; }
+  if (mm === null){ el.textContent = '--'; el.classList.add('dim'); c.innerHTML = '&nbsp;'; return; }
   var n = Math.round(mm), cents = Math.round((mm - n) * 100);
-  el.textContent = noteName(n, true); el.classList.toggle('dim', !live);
-  var tb = tabName(n); $('tabn').textContent = tb ? '尺八　' + tb : ''; $('tabn').style.opacity = live ? 1 : .4;
+  var tb = tabName(n);
+  el.innerHTML = noteName(n, true) + (tb ? '<span id="tabn">' + tabHTML(tb) + '</span>' : ''); el.classList.toggle('dim', !live);
+  
   c.textContent = (cents > 0 ? '+' : cents < 0 ? '−' : '±') + Math.abs(cents) + ' セント';
   c.style.color = !live ? '#b9b2a3' : Math.abs(cents) <= 10 ? 'var(--ok)' : Math.abs(cents) <= 25 ? 'var(--warn)' : 'var(--bad)';
   $('hz').textContent = (S.a4 * Math.pow(2, (mm - 69) / 12)).toFixed(1) + ' Hz　（基準 A4 = ' + S.a4 + ' Hz）';
@@ -349,8 +378,9 @@ function draw(now){
     else if (!hist.length || lastMidi === null) center = ro + 5;
     lo = center - span / 2; hi = center + span / 2;
   }
-  var pxS = h / (hi - lo);
-  var yOf = function(m){ return h - (m - lo) * pxS; };
+  var PAD = 14;                                   // top/bottom margin so edge labels are not clipped
+  var pxS = (h - 2 * PAD) / (hi - lo);
+  var yOf = function(m){ return h - PAD - (m - lo) * pxS; };
   var LM = S.tab === '1' ? 96 : 46;                                  // left label margin
   var xOf = function(t){ return w - 10 - (now - t) / S.win * (w - LM - 10); };
 
@@ -373,8 +403,9 @@ function draw(now){
 
   // semitone lines + labels
   ctx.font = '600 11px -apple-system, "Hiragino Sans", sans-serif'; ctx.textBaseline = 'middle';
-  for (var m = Math.ceil(lo); m <= Math.floor(hi); m++){
+  for (var m = Math.ceil(lo - 1); m <= Math.floor(hi + 1); m++){
     var y = yOf(m), nat = isNatural(m), isRo = (m === ro);
+    if (y < 8 || y > h - 8) continue;
     ctx.strokeStyle = isRo ? '#c8392b' : nat ? '#d9948c' : '#ecc9c3';
     ctx.lineWidth = isRo ? 1.6 : nat ? 1.1 : 0.8;
     ctx.beginPath(); ctx.moveTo(LM - 6, y); ctx.lineTo(w, y); ctx.stroke();
@@ -384,11 +415,11 @@ function draw(now){
       ctx.fillText(noteName(m, true), LM - 9, y);
     }
     var tb = tabName(m);
-    if (tb && (pxS >= 11 || !/[メ中]/.test(tb))){
-      ctx.font = '700 12px "Hiragino Sans","Noto Sans JP",sans-serif';
-      ctx.fillStyle = /[メ中]/.test(tb) ? '#a9776f' : '#8a2b20'; ctx.textAlign = 'left';
-      ctx.fillText(tb, 4, y);
+    if (tb && (pxS >= 11 || tabIsMain(tb))){
+      ctx.fillStyle = tabIsMain(tb) ? '#8a2b20' : '#a0463c';
+      drawTab(tb, 4, y, 13);
     }
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     if (isRo && S.tab !== '1'){ ctx.fillStyle = '#c8392b'; ctx.textAlign = 'left'; ctx.fillText('ロ', LM + 4, y - 8); }
   }
 
