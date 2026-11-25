@@ -29,6 +29,7 @@ button,select,input{font:inherit;color:inherit}
 #note.dim{color:#b9b2a3}
 #info{flex:1;min-width:0}
 #cents{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+#tabn{font-size:20px;font-weight:800;color:#8a2b20;min-height:1.2em;letter-spacing:.06em}
 #hz{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 #meter{position:relative;height:14px;margin-top:4px;border-radius:7px;background:linear-gradient(90deg,#f1d2cd 0,#f7e9c9 30%,#cfe9d6 45%,#cfe9d6 55%,#f7e9c9 70%,#f1d2cd 100%);border:1px solid var(--line)}
 #meter b{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--muted);opacity:.5}
@@ -60,6 +61,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
   <div id="note" class="dim">--</div>
   <div id="info">
     <div id="cents">&nbsp;</div>
+    <div id="tabn"></div>
     <div id="hz">基準 A4 = 440 Hz</div>
     <div id="meter"><b></b><div id="needle"></div></div>
   </div>
@@ -109,11 +111,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
     <label class="f">マイク感度（小さい音も拾う ←→ ノイズに強い）
       <input type="range" id="sens" min="1" max="10" step="1">
     </label>
+    <label class="f">尺八譜（都山流）の表示
+      <select id="tab"><option value="1">音名の横に表示する</option><option value="0">表示しない</option></select>
+    </label>
     <label class="f">線の色分け（±10セントで緑）
       <select id="color"><option value="1">する</option><option value="0">しない（黒）</option></select>
     </label>
   </div>
-  <p class="note">長さと最低音の対応は目安です（1.8尺＝D、1.6尺＝E、2.0尺＝C …）。楽器の個体差は「最低音の微調整」で合わせてください。グラフの緑の帯は、今の音に最も近い音の ±10セントです。</p>
+  <p class="note">尺八譜は都山流の記譜（ロ・ツ・レ・チ・ハ・ヒ、メ＝メリ、中＝中メリ、甲）を、最低音ロからの半音の数で割り当てたものです。流派や楽譜によって表記が違う場合があります。<br>長さと最低音の対応は目安です（1.8尺＝D、1.6尺＝E、2.0尺＝C …）。楽器の個体差は「最低音の微調整」で合わせてください。グラフの緑の帯は、今の音に最も近い音の ±10セントです。</p>
   <button class="btn sm" id="bDemo" type="button">デモ表示（マイクなし）</button>
 </section>
 
@@ -152,7 +157,7 @@ function yinDetect(buf, sr, W, tauMin, tauMax, thr){
 //>>YIN
 
 /* ===== settings ===== */
-var DEF = {len:1.8, a4:440, trim:0, mode:'full', win:8, notation:'abc', acc:'flat', sens:5, color:'1'};
+var DEF = {len:1.8, a4:440, trim:0, mode:'full', win:8, notation:'abc', acc:'flat', sens:5, color:'1', tab:'1'};
 var S = Object.assign({}, DEF);
 try { var sv = JSON.parse(localStorage.getItem('shaku-tuner') || '{}'); Object.assign(S, sv); } catch(e){}
 function save(){ try { localStorage.setItem('shaku-tuner', JSON.stringify(S)); } catch(e){} }
@@ -167,6 +172,16 @@ function noteName(m, oct){
   return oct ? n + (Math.floor(m / 12) - 1) : n;
 }
 function isNatural(m){ return [0,2,4,5,7,9,11].indexOf(pc(m)) >= 0; }
+var TOZAN = {'-2':'ロメ','-1':'ロ中','0':'ロ','1':'ツメ','2':'ツ中','3':'ツ','4':'レメ','5':'レ','6':'チメ','7':'チ','8':'ハメ','9':'ハ中','10':'ハ'};
+function tabName(m){
+  if (S.tab !== '1') return '';
+  var k = m - roMidi();
+  if (k < -2 || k > 24) return '';
+  if (k <= 10) return TOZAN[k];                    // 乙
+  if (k === 11) return '甲ロメ';
+  if (k <= 22) return '甲' + TOZAN[k - 12];        // 甲
+  return k === 23 ? 'ヒメ' : 'ヒ';                 // 大甲
+}
 function roMidi(){ return 62 + Math.round(12 * Math.log2(1.8 / S.len)) + S.trim; }
 
 /* ===== UI refs ===== */
@@ -195,7 +210,7 @@ function buildLenOptions(){
 function syncControls(){
   buildLenOptions();
   $('a4').value = S.a4; $('trim').value = S.trim; $('mode').value = S.mode; $('win').value = S.win;
-  $('notation').value = S.notation; $('acc').value = S.acc; $('sens').value = S.sens; $('color').value = S.color;
+  $('notation').value = S.notation; $('acc').value = S.acc; $('sens').value = S.sens; $('color').value = S.color; $('tab').value = S.tab;
   $('hz').textContent = '基準 A4 = ' + S.a4 + ' Hz';
 }
 function bind(id, key, num){
@@ -206,7 +221,7 @@ function bind(id, key, num){
   });
 }
 bind('len','len',true); bind('a4','a4',true); bind('trim','trim',true); bind('mode','mode');
-bind('win','win',true); bind('notation','notation'); bind('acc','acc'); bind('sens','sens',true); bind('color','color');
+bind('win','win',true); bind('notation','notation'); bind('acc','acc'); bind('sens','sens',true); bind('color','color'); bind('tab','tab');
 function step(id, key, d, lo, hi){
   $(id).addEventListener('click', function(){ S[key] = Math.min(hi, Math.max(lo, (S[key] || 0) + d)); save(); syncControls(); });
 }
@@ -247,6 +262,7 @@ function stop(){
   if (stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
   if (actx){ try{ actx.close(); }catch(e){} actx = null; }
   if (wake){ try{ wake.release(); }catch(e){} wake = null; }
+  hist.push({t: vnow, m: null}); recent = [];
   analyser = null; setRunning(false); demo = false;
 }
 function setRunning(on){
@@ -309,9 +325,10 @@ function updateReadout(now, m){
   var el = $('note'), c = $('cents'), nd = $('needle');
   var live = m !== null || (lastMidi !== null && now - lastVoiced < 0.7);
   var mm = m !== null ? m : lastMidi;
-  if (mm === null){ el.textContent = '--'; el.classList.add('dim'); c.innerHTML = '&nbsp;'; return; }
+  if (mm === null){ el.textContent = '--'; el.classList.add('dim'); c.innerHTML = '&nbsp;'; $('tabn').textContent = ''; return; }
   var n = Math.round(mm), cents = Math.round((mm - n) * 100);
   el.textContent = noteName(n, true); el.classList.toggle('dim', !live);
+  var tb = tabName(n); $('tabn').textContent = tb ? '尺八　' + tb : ''; $('tabn').style.opacity = live ? 1 : .4;
   c.textContent = (cents > 0 ? '+' : cents < 0 ? '−' : '±') + Math.abs(cents) + ' セント';
   c.style.color = !live ? '#b9b2a3' : Math.abs(cents) <= 10 ? 'var(--ok)' : Math.abs(cents) <= 25 ? 'var(--warn)' : 'var(--bad)';
   $('hz').textContent = (S.a4 * Math.pow(2, (mm - 69) / 12)).toFixed(1) + ' Hz　（基準 A4 = ' + S.a4 + ' Hz）';
@@ -334,7 +351,7 @@ function draw(now){
   }
   var pxS = h / (hi - lo);
   var yOf = function(m){ return h - (m - lo) * pxS; };
-  var LM = 46;                                  // left label margin
+  var LM = S.tab === '1' ? 96 : 46;                                  // left label margin
   var xOf = function(t){ return w - 10 - (now - t) / S.win * (w - LM - 10); };
 
   // vertical time grid (every second, scrolling)
@@ -362,10 +379,17 @@ function draw(now){
     ctx.lineWidth = isRo ? 1.6 : nat ? 1.1 : 0.8;
     ctx.beginPath(); ctx.moveTo(LM - 6, y); ctx.lineTo(w, y); ctx.stroke();
     if (pxS >= 11 || nat){
+      ctx.font = '600 11px -apple-system, "Hiragino Sans", sans-serif';
       ctx.fillStyle = nat ? '#4a443b' : '#8a8478'; ctx.textAlign = 'right';
       ctx.fillText(noteName(m, true), LM - 9, y);
     }
-    if (isRo){ ctx.fillStyle = '#c8392b'; ctx.textAlign = 'left'; ctx.fillText('ロ', LM + 4, y - 8); }
+    var tb = tabName(m);
+    if (tb && (pxS >= 11 || !/[メ中]/.test(tb))){
+      ctx.font = '700 12px "Hiragino Sans","Noto Sans JP",sans-serif';
+      ctx.fillStyle = /[メ中]/.test(tb) ? '#a9776f' : '#8a2b20'; ctx.textAlign = 'left';
+      ctx.fillText(tb, 4, y);
+    }
+    if (isRo && S.tab !== '1'){ ctx.fillStyle = '#c8392b'; ctx.textAlign = 'left'; ctx.fillText('ロ', LM + 4, y - 8); }
   }
 
   // trace
@@ -389,11 +413,14 @@ function draw(now){
   }
 }
 
-var lastRun = 0;
+var lastRun = 0, lastTs = 0, vnow = 0;     // vnow: paper clock, advances only while running
 function loop(ts){
-  var now = ts / 1000;
-  if (running && now - lastRun >= 0.014){ lastRun = now; analyse(now); }
-  draw(now);
+  var t = ts / 1000, dt = lastTs ? Math.min(0.1, t - lastTs) : 0; lastTs = t;
+  if (running){
+    vnow += dt;
+    if (vnow - lastRun >= 0.014){ lastRun = vnow; analyse(vnow); }
+  }
+  draw(vnow);
   requestAnimationFrame(loop);
 }
 
