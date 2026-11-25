@@ -1,0 +1,16 @@
+{
+  "name": "尺八チューナー",
+  "short_name": "尺八チューナー",
+  "description": "尺八の音程をリアルタイムのグラフで確認するチューナー",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fbf7ec",
+  "theme_color": "#f4efe2",
+  "lang": "ja",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

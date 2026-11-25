@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4efe2">
 <title>尺八チューナー</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="尺八チューナー">
 <style>
 :root{
   --paper:#fbf7ec; --grid:#ecc9c3; --grid-strong:#d9948c; --ink:#1d1b18; --muted:#7a746a;
@@ -462,6 +468,13 @@ showMsg('「開始」を押してマイクを許可し、尺八を吹いてく�
 $('bStart').addEventListener('click', function(){ if (running) hideMsg(); });
 $('bDemo').addEventListener('click', hideMsg);
 requestAnimationFrame(loop);
+
+/* オフライン対応（HTTPSで開いたときだけ有効） */
+try {
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+} catch(e){}
 </script>
 </body>
 </html>
