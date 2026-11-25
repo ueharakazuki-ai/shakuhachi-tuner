@@ -30,18 +30,18 @@ button,select,input{font:inherit;color:inherit}
 .btn.sm{padding:4px 10px;min-height:34px}
 #level{width:44px;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
 #level i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
-#readout{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:6px 14px 4px}
-#note{font-size:clamp(38px,10.5vw,64px);font-weight:800;line-height:1.1;min-width:1.8em;white-space:nowrap;font-variant-numeric:tabular-nums}
+#readout{display:flex;flex-wrap:nowrap;align-items:center;gap:10px;padding:6px 14px 4px}
+#note{font-size:clamp(30px,8vw,52px);font-weight:800;line-height:1;flex:none;width:6.3em;height:1.45em;display:flex;align-items:center;white-space:nowrap;font-variant-numeric:tabular-nums}
 #note.dim{color:#b9b2a3}
 #note.dim #tabn{color:#d7b9b4}
-#info{flex:1 1 150px;min-width:140px}
+#info{flex:1 1 0;min-width:0;min-height:66px}
 #cents{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
-#tabn{font-weight:800;color:#8a2b20;margin-left:.25em}
+#tabn{display:block;height:1em;line-height:1;font-weight:800;color:#8a2b20;margin-left:.25em;white-space:nowrap}
 #tabn .sm{font-size:.85em}
 #tabn .mr{font-size:.7em;vertical-align:-.25em}
 #tabn .pre{font-size:1em}
 #tabn .sep{font-weight:400;margin:0 .05em}
-#hz{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+#hz{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 #meter{position:relative;height:14px;margin-top:4px;border-radius:7px;background:linear-gradient(90deg,#f1d2cd 0,#f7e9c9 30%,#cfe9d6 45%,#cfe9d6 55%,#f7e9c9 70%,#f1d2cd 100%);border:1px solid var(--line)}
 #meter b{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--muted);opacity:.5}
 #needle{position:absolute;top:-3px;width:6px;height:18px;border-radius:3px;background:var(--ink);left:50%;transform:translateX(-50%);transition:left .06s}
@@ -72,7 +72,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
   <div id="note" class="dim">--</div>
   <div id="info">
     <div id="cents">&nbsp;</div>
-    <div id="hz">基準 A4 = 440 Hz</div>
+    <div id="hz">基準 A4=440 Hz</div>
     <div id="meter"><b></b><div id="needle"></div></div>
   </div>
 </section>
@@ -245,7 +245,7 @@ function syncControls(){
   buildLenOptions();
   $('a4').value = S.a4; $('trim').value = S.trim; $('mode').value = S.mode; $('win').value = S.win;
   $('notation').value = S.notation; $('acc').value = S.acc; $('sens').value = S.sens; $('color').value = S.color; $('tab').value = S.tab;
-  $('hz').textContent = '基準 A4 = ' + S.a4 + ' Hz';
+  $('hz').textContent = '基準 A4=' + S.a4 + ' Hz';
 }
 function bind(id, key, num){
   $(id).addEventListener('change', function(){
@@ -364,11 +364,11 @@ function updateReadout(now, m){
   if (mm === null){ el.textContent = '--'; el.classList.add('dim'); c.innerHTML = '&nbsp;'; return; }
   var n = Math.round(mm), cents = Math.round((mm - n) * 100);
   var tb = tabName(n);
-  el.innerHTML = noteName(n, true) + (tb ? '<span id="tabn">' + tabHTML(tb) + '</span>' : ''); el.classList.toggle('dim', !live);
+  el.innerHTML = '<span>' + noteName(n, true) + '</span>' + (tb ? '<span id="tabn">' + tabHTML(tb) + '</span>' : ''); el.classList.toggle('dim', !live);
   
   c.textContent = (cents > 0 ? '+' : cents < 0 ? '−' : '±') + Math.abs(cents) + ' セント';
   c.style.color = !live ? '#b9b2a3' : Math.abs(cents) <= 10 ? 'var(--ok)' : Math.abs(cents) <= 25 ? 'var(--warn)' : 'var(--bad)';
-  $('hz').textContent = (S.a4 * Math.pow(2, (mm - 69) / 12)).toFixed(1) + ' Hz　（基準 A4 = ' + S.a4 + ' Hz）';
+  $('hz').textContent = (S.a4 * Math.pow(2, (mm - 69) / 12)).toFixed(1) + ' Hz · A4=' + S.a4;
   nd.style.left = (50 + Math.max(-50, Math.min(50, cents))) + '%';
 }
 
